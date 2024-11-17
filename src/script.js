@@ -109,7 +109,7 @@ async function loadAndDisplayModel() {
         });
         model.position.set(0, 0, 0); // Center the object
         scene.add(model);
-        console.log('Model and texture loaded successfully.');
+        //console.log('Model and texture loaded successfully.');
     } catch (error) {
         console.error('Failed to load model or texture:', error);
     }
