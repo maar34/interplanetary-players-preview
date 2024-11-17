@@ -3,6 +3,7 @@ name: Deploy static content to Pages
 on:
   push:
     branches: ["main"]
+
   workflow_dispatch:
 
 permissions:
@@ -21,9 +22,6 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
 
-    env:
-      VITE_BASE_URL: '/interplanetary-player-loader/' # Adjust for your deployment path
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,21 +31,13 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Cache Node.js modules
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
       - name: Install dependencies
         run: npm install
 
       - name: Build the project
         run: npm run build
 
-      - name: List build output
+      - name: Debug build output
         run: ls -la ./dist
 
       - name: Upload artifact
