@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'; // Import GLTFLoader
 
 const MAX_RETRIES = 3; // Maximum number of retry attempts
 
@@ -12,9 +12,8 @@ function getUrlParameter(name) {
     return urlParams.get(name);
 }
 
-// Set default paths or retrieve from URL parameters
-const modelPath = getUrlParameter('object') || `${import.meta.env.BASE_URL}models/d6fbd28b1af1_a_spherical_exoplan.obj`;
-const texturePath = getUrlParameter('texture') || `${import.meta.env.BASE_URL}textures/d6fbd28b1af1_a_spherical_exoplan_texture_kd.jpg`;
+// Set default model path or retrieve from URL parameters
+const modelPath = getUrlParameter('object') || `${import.meta.env.BASE_URL}models/mw_hi.glb`;
 
 // Scene
 const scene = new THREE.Scene();
@@ -47,37 +46,16 @@ controls.enablePan = false; // Disable panning
 controls.minDistance = 1.5; // Minimum zoom distance
 controls.maxDistance = 5; // Maximum zoom distance
 
-// Load Texture with Error Handling
-function loadTextureWithRetry(url, retries = MAX_RETRIES) {
-    return new Promise((resolve, reject) => {
-        const textureLoader = new THREE.TextureLoader();
-        function attemptLoad(retryCount) {
-            const texture = textureLoader.load(
-                url,
-                () => resolve(texture),
-                undefined,
-                (error) => {
-                    console.warn(`Texture load failed, attempt ${retryCount + 1}/${retries}`);
-                    if (retryCount < retries - 1) {
-                        attemptLoad(retryCount + 1);
-                    } else {
-                        reject(new Error('Failed to load texture after multiple attempts'));
-                    }
-                }
-            );
-        }
-        attemptLoad(0);
-    });
-}
+// Initialize GLTFLoader
+const gltfLoader = new GLTFLoader();
 
-// Load OBJ Model with Retry Logic
+// Load GLB Model with Retry Logic
 function loadModelWithRetry(url, retries = MAX_RETRIES) {
     return new Promise((resolve, reject) => {
-        const loader = new OBJLoader();
         function attemptLoad(retryCount) {
-            loader.load(
+            gltfLoader.load(
                 url,
-                (object) => resolve(object),
+                (gltf) => resolve(gltf.scene), // Resolve with the loaded scene
                 undefined,
                 (error) => {
                     console.warn(`Model load failed, attempt ${retryCount + 1}/${retries}`);
@@ -93,25 +71,21 @@ function loadModelWithRetry(url, retries = MAX_RETRIES) {
     });
 }
 
-// Load and Display Model with Texture
+// Load and Display Model
 async function loadAndDisplayModel() {
     try {
-        const texture = await loadTextureWithRetry(texturePath);
         const model = await loadModelWithRetry(modelPath);
-
         model.traverse((child) => {
             if (child.isMesh) {
-                child.material = new THREE.MeshStandardMaterial({
-                    map: texture,
-                    flatShading: true,
-                });
+                // Optionally, you can set additional material properties here
+                child.material.needsUpdate = true; // Ensure materials are updated
             }
         });
         model.position.set(0, 0, 0); // Center the object
         scene.add(model);
-        //console.log('Model and texture loaded successfully.');
+        console.log('GLB model loaded successfully.');
     } catch (error) {
-        console.error('Failed to load model or texture:', error);
+        console.error('Failed to load model:', error);
     }
 }
 
