@@ -10,8 +10,8 @@ function getUrlParameter(name) {
     return urlParams.get(name);
 }
 
-// Set default model path or retrieve from URL parameters
-let modelPath = getUrlParameter('object') || `${import.meta.env.BASE_URL}models/mw_hi.glb`;
+// Retrieve the model path from the URL
+const modelPath = getUrlParameter('model'); // Changed from 'object' to 'model'
 
 // Scene
 const scene = new THREE.Scene();
@@ -24,30 +24,23 @@ const camera = new THREE.PerspectiveCamera(
     0.1,
     1000
 );
-camera.position.set(0, 0, 2.5); // Closer initial position
+camera.position.set(0, 0, 2.5);
 
 // Renderer
 const canvas = document.querySelector('.webgl');
-const renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: false, // Disable antialiasing for performance
-    alpha: true,
-});
+const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-renderer.setClearColor(0x000000, 0); // Fully transparent background
 
 // Lights
-const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 1.0); // White sky and ground
+const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 1.0);
 scene.add(hemisphereLight);
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.3); // Soft ambient light
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
 scene.add(ambientLight);
 
 // Controls
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = false;
-controls.enablePan = false;
 controls.minDistance = 1.5;
 controls.maxDistance = 5;
 
@@ -57,7 +50,7 @@ const gltfLoader = new GLTFLoader();
 // Variable to track the current model
 let currentModel = null;
 
-// Function to dispose of a model
+// Dispose functions
 function disposeModel(model) {
     model.traverse((child) => {
         if (child.isMesh) {
@@ -68,7 +61,6 @@ function disposeModel(model) {
     scene.remove(model);
 }
 
-// Dispose of a material
 function disposeMaterial(material) {
     for (const key in material) {
         const value = material[key];
@@ -77,42 +69,6 @@ function disposeMaterial(material) {
         }
     }
     material.dispose();
-}
-
-// Load model with retry logic
-function loadModelWithRetry(url, retries = MAX_RETRIES) {
-    return new Promise((resolve, reject) => {
-        function attemptLoad(retryCount) {
-            gltfLoader.load(
-                url,
-                (gltf) => resolve(gltf.scene),
-                undefined,
-                (error) => {
-                    console.warn(`Model load failed, attempt ${retryCount + 1}/${retries}`);
-                    if (retryCount < retries - 1) {
-                        attemptLoad(retryCount + 1);
-                    } else {
-                        reject(new Error('Failed to load model after multiple attempts'));
-                    }
-                }
-            );
-        }
-        attemptLoad(0);
-    });
-}
-
-// Show spinner
-function showSpinner() {
-    const spinner = document.createElement('div');
-    spinner.id = 'spinner';
-    spinner.innerHTML = `<div class="loader"></div>`;
-    document.body.appendChild(spinner);
-}
-
-// Hide spinner
-function hideSpinner() {
-    const spinner = document.getElementById('spinner');
-    if (spinner) spinner.remove();
 }
 
 // Show toast (auto-dismiss)
@@ -125,20 +81,23 @@ function showToast(message, type = 'info', duration = 1000) {
 
     toastContainer.appendChild(toast);
 
-    // Auto-dismiss after the specified duration
     setTimeout(() => {
         toast.style.animation = 'fade-out 0.3s ease';
-        setTimeout(() => toast.remove(), 300); // Wait for fade-out to complete
+        setTimeout(() => toast.remove(), 300);
     }, duration);
 }
 
-// Show persistent toast with close button
+// Show persistent toast with close button (only for errors)
 function showPersistentToast(message, type = 'error') {
     const toastContainer = document.getElementById('toast-container') || createToastContainer();
 
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    toast.textContent = message;
+    
+    // Create a span to hold the message
+    const messageSpan = document.createElement('span');
+    messageSpan.textContent = message;
+    toast.appendChild(messageSpan);
 
     // Add close button for persistent toasts
     const closeButton = document.createElement('button');
@@ -149,7 +108,7 @@ function showPersistentToast(message, type = 'error') {
     toastContainer.appendChild(toast);
 }
 
-// Create toast container if it doesn't exist
+// Create toast container
 function createToastContainer() {
     const toastContainer = document.createElement('div');
     toastContainer.id = 'toast-container';
@@ -157,8 +116,30 @@ function createToastContainer() {
     return toastContainer;
 }
 
+// Load model with retry logic
+async function loadModel(url, retries = MAX_RETRIES) {
+    let retryCount = 0;
+    while (retryCount < retries) {
+        try {
+            console.log(`Attempting to load model: ${url} (Attempt ${retryCount + 1}/${retries})`);
+            const gltf = await gltfLoader.loadAsync(url);
+            console.log(`Successfully loaded model: ${url}`);
+            return gltf.scene;
+        } catch (error) {
+            retryCount++;
+            console.warn(`Failed to load model at ${url}, retry ${retryCount}/${retries}`);
+        }
+    }
+    throw new Error(`Failed to load model after ${retries} retries: ${url}`);
+}
+
 // Load and display model
 async function loadAndDisplayModel() {
+    if (!modelPath) {
+        showPersistentToast('No model URL provided. Please specify a model using the "model" URL parameter.', 'error');
+        return;
+    }
+
     try {
         if (currentModel) {
             disposeModel(currentModel);
@@ -168,8 +149,10 @@ async function loadAndDisplayModel() {
         showSpinner();
         showToast('Loading model, please wait...', 'info', 1000);
 
+        // Attempt to load the model from the URL
         try {
-            const model = await loadModelWithRetry(modelPath);
+            const decodedModelPath = decodeURIComponent(modelPath);
+            const model = await loadModel(decodedModelPath); // Try to load the primary model
             scene.add(model);
             currentModel = model;
 
@@ -177,27 +160,34 @@ async function loadAndDisplayModel() {
 
             hideSpinner();
             showToast('Model loaded successfully.', 'success', 1000);
-        } catch (loadError) {
-            console.warn('Remote model load failed. Loading fallback model.');
-            const originalModelPath = modelPath; // Keep track of the requested model
-            modelPath = `${import.meta.env.BASE_URL}models/mw_hi.glb`; // Set fallback model
-
-            const fallbackModel = await loadModelWithRetry(modelPath);
-            scene.add(fallbackModel);
-            currentModel = fallbackModel;
-
+        } catch (error) {
+            console.error(`Error loading model from URL (${modelPath}):`, error);
             hideSpinner();
             showPersistentToast(
-                `Unable to load the requested model. A temporary model has been loaded instead.`,
+                `Unable to load the requested model. Please check the URL and try again.`,
                 'error'
             );
         }
-    } catch (error) {
-        console.error('Critical error loading model:', error);
+    } catch (criticalError) {
+        console.error('Critical error loading model:', criticalError);
         hideSpinner();
         showPersistentToast('Critical error loading model.', 'error');
     }
 }
+
+// Spinner management
+function showSpinner() {
+    const spinner = document.createElement('div');
+    spinner.id = 'spinner';
+    spinner.innerHTML = `<div class="loader"></div>`;
+    document.body.appendChild(spinner);
+}
+
+function hideSpinner() {
+    const spinner = document.getElementById('spinner');
+    if (spinner) spinner.remove();
+}
+
 // Debounced resize handler
 function debounce(func, wait, immediate) {
     let timeout;
@@ -230,7 +220,7 @@ window.addEventListener(
     }, 200)
 );
 
-// Start the animation loop after loading the model
+// Start animation loop
 function startAnimationLoop() {
     function animate() {
         controls.update();
