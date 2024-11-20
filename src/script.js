@@ -115,39 +115,46 @@ function hideSpinner() {
     if (spinner) spinner.remove();
 }
 
-// Show persistent toast with close button
-function showPersistentToast(message, type = 'error') {
-    const toastContainerId = 'toast-container';
-    let toastContainer = document.getElementById(toastContainerId);
-
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = toastContainerId;
-        toastContainer.style.position = 'fixed';
-        toastContainer.style.bottom = '20px';
-        toastContainer.style.left = '50%';
-        toastContainer.style.transform = 'translateX(-50%)';
-        toastContainer.style.zIndex = '1000';
-        toastContainer.style.pointerEvents = 'none';
-        document.body.appendChild(toastContainer);
-    }
+// Show toast (auto-dismiss)
+function showToast(message, type = 'info', duration = 1000) {
+    const toastContainer = document.getElementById('toast-container') || createToastContainer();
 
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
 
+    toastContainer.appendChild(toast);
+
+    // Auto-dismiss after the specified duration
+    setTimeout(() => {
+        toast.style.animation = 'fade-out 0.3s ease';
+        setTimeout(() => toast.remove(), 300); // Wait for fade-out to complete
+    }, duration);
+}
+
+// Show persistent toast with close button
+function showPersistentToast(message, type = 'error') {
+    const toastContainer = document.getElementById('toast-container') || createToastContainer();
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+
+    // Add close button for persistent toasts
     const closeButton = document.createElement('button');
     closeButton.textContent = '×';
-    closeButton.style.marginLeft = '10px';
-    closeButton.style.background = 'transparent';
-    closeButton.style.border = 'none';
-    closeButton.style.color = '#fff';
-    closeButton.style.cursor = 'pointer';
-    closeButton.style.fontSize = '1.5rem';
     closeButton.onclick = () => toast.remove();
-
     toast.appendChild(closeButton);
+
     toastContainer.appendChild(toast);
+}
+
+// Create toast container if it doesn't exist
+function createToastContainer() {
+    const toastContainer = document.createElement('div');
+    toastContainer.id = 'toast-container';
+    document.body.appendChild(toastContainer);
+    return toastContainer;
 }
 
 // Load and display model
@@ -159,6 +166,7 @@ async function loadAndDisplayModel() {
         }
 
         showSpinner();
+        showToast('Loading model, please wait...', 'info', 1000);
 
         try {
             const model = await loadModelWithRetry(modelPath);
@@ -168,7 +176,7 @@ async function loadAndDisplayModel() {
             renderer.compile(scene, camera);
 
             hideSpinner();
-            showPersistentToast('Model loaded successfully.', 'success');
+            showToast('Model loaded successfully.', 'success', 1000);
         } catch (loadError) {
             console.warn('Remote model load failed. Loading fallback model.');
             const originalModelPath = modelPath; // Keep track of the requested model
@@ -190,7 +198,6 @@ async function loadAndDisplayModel() {
         showPersistentToast('Critical error loading model.', 'error');
     }
 }
-
 // Debounced resize handler
 function debounce(func, wait, immediate) {
     let timeout;
