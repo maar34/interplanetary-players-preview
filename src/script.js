@@ -1,8 +1,6 @@
-// src/script.js
-
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'; // Import GLTFLoader
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const MAX_RETRIES = 3; // Maximum number of retry attempts
 
@@ -13,49 +11,81 @@ function getUrlParameter(name) {
 }
 
 // Set default model path or retrieve from URL parameters
-const modelPath = getUrlParameter('object') || `${import.meta.env.BASE_URL}models/mw_hi.glb`;
+let modelPath = getUrlParameter('object') || `${import.meta.env.BASE_URL}models/mw_hi.glb`;
 
 // Scene
 const scene = new THREE.Scene();
 scene.background = null; // Transparent background
 
 // Camera
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(
+    45,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+);
 camera.position.set(0, 0, 2.5); // Closer initial position
 
 // Renderer
 const canvas = document.querySelector('.webgl');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: false, // Disable antialiasing for performance
+    alpha: true,
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.setClearColor(0x000000, 0); // Fully transparent background
 
 // Lights
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-scene.add(ambientLight);
+const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 1.0); // White sky and ground
+scene.add(hemisphereLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-directionalLight.position.set(5, 10, 7.5);
-scene.add(directionalLight);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.3); // Soft ambient light
+scene.add(ambientLight);
 
 // Controls
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.05;
-controls.enablePan = false; // Disable panning
-controls.minDistance = 1.5; // Minimum zoom distance
-controls.maxDistance = 5; // Maximum zoom distance
+controls.enableDamping = false;
+controls.enablePan = false;
+controls.minDistance = 1.5;
+controls.maxDistance = 5;
 
-// Initialize GLTFLoader
+// GLTF Loader
 const gltfLoader = new GLTFLoader();
 
-// Load GLB Model with Retry Logic
+// Variable to track the current model
+let currentModel = null;
+
+// Function to dispose of a model
+function disposeModel(model) {
+    model.traverse((child) => {
+        if (child.isMesh) {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) disposeMaterial(child.material);
+        }
+    });
+    scene.remove(model);
+}
+
+// Dispose of a material
+function disposeMaterial(material) {
+    for (const key in material) {
+        const value = material[key];
+        if (value && typeof value === 'object' && 'minFilter' in value) {
+            value.dispose();
+        }
+    }
+    material.dispose();
+}
+
+// Load model with retry logic
 function loadModelWithRetry(url, retries = MAX_RETRIES) {
     return new Promise((resolve, reject) => {
         function attemptLoad(retryCount) {
             gltfLoader.load(
                 url,
-                (gltf) => resolve(gltf.scene), // Resolve with the loaded scene
+                (gltf) => resolve(gltf.scene),
                 undefined,
                 (error) => {
                     console.warn(`Model load failed, attempt ${retryCount + 1}/${retries}`);
@@ -71,44 +101,116 @@ function loadModelWithRetry(url, retries = MAX_RETRIES) {
     });
 }
 
-// Load and Display Model
+// Show spinner
+function showSpinner() {
+    const spinner = document.createElement('div');
+    spinner.id = 'spinner';
+    spinner.innerHTML = `<div class="loader"></div>`;
+    document.body.appendChild(spinner);
+}
+
+// Hide spinner
+function hideSpinner() {
+    const spinner = document.getElementById('spinner');
+    if (spinner) spinner.remove();
+}
+
+// Show toast message
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000); // Auto-remove after 3 seconds
+}
+
+// Load and display model
 async function loadAndDisplayModel() {
     try {
+        // Dispose of the previous model if it exists
+        if (currentModel) {
+            disposeModel(currentModel);
+            currentModel = null;
+        }
+
+        // Show spinner and toast
+        showSpinner();
+        showToast('Loading model, please wait...', 'info');
+
         const model = await loadModelWithRetry(modelPath);
+
         model.traverse((child) => {
             if (child.isMesh) {
-                // Optionally, you can set additional material properties here
-                child.material.needsUpdate = true; // Ensure materials are updated
+                if (!(child.material instanceof THREE.MeshStandardMaterial)) {
+                    child.material = new THREE.MeshStandardMaterial({
+                        map: child.material.map || null,
+                        metalness: 0.3,
+                        roughness: 0.7,
+                    });
+                }
+                child.castShadow = false;
+                child.receiveShadow = false;
             }
         });
-        model.position.set(0, 0, 0); // Center the object
+
+        model.position.set(0, 0, 0);
         scene.add(model);
-        console.log('GLB model loaded successfully.');
+        currentModel = model;
+
+        // Precompile shaders
+        renderer.compile(scene, camera);
+
+        // Hide spinner and show success toast
+        hideSpinner();
+        showToast('Model loaded successfully.', 'success');
     } catch (error) {
         console.error('Failed to load model:', error);
+        hideSpinner();
+        showToast('Failed to load the 3D model.', 'error');
     }
 }
 
-// Call function to load and display model
-loadAndDisplayModel();
-
-// Handle Window Resize
-window.addEventListener('resize', () => {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-});
-
-// Animation Loop
-function animate() {
-    controls.update();
-    renderer.render(scene, camera);
-    requestAnimationFrame(animate);
+// Debounced resize handler
+function debounce(func, wait, immediate) {
+    let timeout;
+    return function () {
+        const context = this,
+            args = arguments;
+        const later = function () {
+            timeout = null;
+            if (!immediate) func.apply(context, args);
+        };
+        const callNow = immediate && !timeout;
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+        if (callNow) func.apply(context, args);
+    };
 }
 
-animate();
+// Handle resize
+window.addEventListener(
+    'resize',
+    debounce(() => {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(width, height);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    }, 200)
+);
+
+// Start the animation loop after loading the model
+function startAnimationLoop() {
+    function animate() {
+        controls.update();
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+    }
+    animate();
+}
+
+// Initialize
+loadAndDisplayModel().then(startAnimationLoop);
