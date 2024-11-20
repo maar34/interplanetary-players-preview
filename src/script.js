@@ -115,58 +115,79 @@ function hideSpinner() {
     if (spinner) spinner.remove();
 }
 
-// Show toast message
-function showToast(message, type = 'success') {
+// Show persistent toast with close button
+function showPersistentToast(message, type = 'error') {
+    const toastContainerId = 'toast-container';
+    let toastContainer = document.getElementById(toastContainerId);
+
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = toastContainerId;
+        toastContainer.style.position = 'fixed';
+        toastContainer.style.bottom = '20px';
+        toastContainer.style.left = '50%';
+        toastContainer.style.transform = 'translateX(-50%)';
+        toastContainer.style.zIndex = '1000';
+        toastContainer.style.pointerEvents = 'none';
+        document.body.appendChild(toastContainer);
+    }
+
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000); // Auto-remove after 3 seconds
+
+    const closeButton = document.createElement('button');
+    closeButton.textContent = '×';
+    closeButton.style.marginLeft = '10px';
+    closeButton.style.background = 'transparent';
+    closeButton.style.border = 'none';
+    closeButton.style.color = '#fff';
+    closeButton.style.cursor = 'pointer';
+    closeButton.style.fontSize = '1.5rem';
+    closeButton.onclick = () => toast.remove();
+
+    toast.appendChild(closeButton);
+    toastContainer.appendChild(toast);
 }
 
 // Load and display model
 async function loadAndDisplayModel() {
     try {
-        // Dispose of the previous model if it exists
         if (currentModel) {
             disposeModel(currentModel);
             currentModel = null;
         }
 
-        // Show spinner and toast
         showSpinner();
-        showToast('Loading model, please wait...', 'info');
 
-        const model = await loadModelWithRetry(modelPath);
+        try {
+            const model = await loadModelWithRetry(modelPath);
+            scene.add(model);
+            currentModel = model;
 
-        model.traverse((child) => {
-            if (child.isMesh) {
-                if (!(child.material instanceof THREE.MeshStandardMaterial)) {
-                    child.material = new THREE.MeshStandardMaterial({
-                        map: child.material.map || null,
-                        metalness: 0.3,
-                        roughness: 0.7,
-                    });
-                }
-                child.castShadow = false;
-                child.receiveShadow = false;
-            }
-        });
+            renderer.compile(scene, camera);
 
-        model.position.set(0, 0, 0);
-        scene.add(model);
-        currentModel = model;
+            hideSpinner();
+            showPersistentToast('Model loaded successfully.', 'success');
+        } catch (loadError) {
+            console.warn('Remote model load failed. Loading fallback model.');
+            const originalModelPath = modelPath; // Keep track of the requested model
+            modelPath = `${import.meta.env.BASE_URL}models/mw_hi.glb`; // Set fallback model
 
-        // Precompile shaders
-        renderer.compile(scene, camera);
+            const fallbackModel = await loadModelWithRetry(modelPath);
+            scene.add(fallbackModel);
+            currentModel = fallbackModel;
 
-        // Hide spinner and show success toast
-        hideSpinner();
-        showToast('Model loaded successfully.', 'success');
+            hideSpinner();
+            showPersistentToast(
+                `Unable to load the requested model (${originalModelPath}). A temporary model has been loaded instead.`,
+                'error'
+            );
+        }
     } catch (error) {
-        console.error('Failed to load model:', error);
+        console.error('Critical error loading model:', error);
         hideSpinner();
-        showToast('Failed to load the 3D model.', 'error');
+        showPersistentToast('Critical error loading model.', 'error');
     }
 }
 
