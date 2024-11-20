@@ -188,7 +188,7 @@ async function loadAndDisplayModel() {
 
             hideSpinner();
             showPersistentToast(
-                `Unable to load the requested model (${originalModelPath}). A temporary model has been loaded instead.`,
+                `Unable to load the requested model. A temporary model has been loaded instead.`,
                 'error'
             );
         }
