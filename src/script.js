@@ -80,7 +80,7 @@ function showToast(message, type = 'info', persistent = false) {
         closeButton.onclick = () => toast.remove();
         toast.appendChild(closeButton);
     } else {
-        setTimeout(() => toast.remove(), 5000);
+        setTimeout(() => toast.remove(), 3000);
     }
 
     toastContainer.appendChild(toast);
