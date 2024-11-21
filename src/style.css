@@ -1,3 +1,12 @@
+/* Inter Regular (Body Text - Regular) */
+@font-face {
+    font-family: 'Inter';
+    src: url('/assets/fonts/Inter-Regular.woff2') format('woff2'),
+         url('/assets/fonts/Inter-Regular.ttf') format('truetype');
+    font-weight: 400; /* Regular */
+    font-style: normal;
+}
+
 body {
     margin: 0;
     overflow: hidden;
@@ -65,12 +74,13 @@ canvas.webgl {
 
 /* Toast Styling */
 .toast {
+    font-family: 'Inter Display', sans-serif;
     position: relative;
     background-color: #000000;
     color: #fff;
     padding: 10px 20px;
     border-radius: 5px;
-    font-size: 1.3rem;
+    font-size: 0.5rem;
     opacity: 0.9;
     animation: fade-in 0.3s ease;
     pointer-events: auto; /* Allow interaction with the close button */
@@ -117,6 +127,6 @@ canvas.webgl {
     background: transparent;
     border: none;
     color: #fff;
-    font-size: 1.2rem;
+    font-size: 0.8rem;
     cursor: pointer;
 }

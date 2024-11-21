@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const MAX_RETRIES = 3; // Maximum number of retry attempts
+const FALLBACK_MODEL = '/assets/models/not-found-low.glb'; // Ensure this path is correct
 
 // Helper function to get URL parameters
 function getUrlParameter(name) {
@@ -10,14 +11,11 @@ function getUrlParameter(name) {
     return urlParams.get(name);
 }
 
-// Retrieve the model path from the URL
-const modelPath = getUrlParameter('model'); // Changed from 'object' to 'model'
-
-// Scene
+// Scene Setup
 const scene = new THREE.Scene();
 scene.background = null; // Transparent background
 
-// Camera
+// Camera Setup
 const camera = new THREE.PerspectiveCamera(
     45,
     window.innerWidth / window.innerHeight,
@@ -26,21 +24,27 @@ const camera = new THREE.PerspectiveCamera(
 );
 camera.position.set(0, 0, 2.5);
 
-// Renderer
+// Renderer Setup
 const canvas = document.querySelector('.webgl');
-const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: false,
+    alpha: true,
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 
-// Lights
+// Lights Setup
 const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 1.0);
 scene.add(hemisphereLight);
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
 scene.add(ambientLight);
 
-// Controls
+// Controls Setup
 const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = false;
+controls.enablePan = false;
 controls.minDistance = 1.5;
 controls.maxDistance = 5;
 
@@ -50,8 +54,56 @@ const gltfLoader = new GLTFLoader();
 // Variable to track the current model
 let currentModel = null;
 
-// Dispose functions
+// Toast Management
+let toastContainer = null;
+
+// Initialize Toast Container
+function initializeToastContainer() {
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        document.body.appendChild(toastContainer);
+    }
+}
+
+// Show Toast Message
+function showToast(message, type = 'info', persistent = false) {
+    initializeToastContainer();
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+
+    if (persistent) {
+        const closeButton = document.createElement('button');
+        closeButton.textContent = '×';
+        closeButton.onclick = () => toast.remove();
+        toast.appendChild(closeButton);
+    } else {
+        setTimeout(() => toast.remove(), 5000);
+    }
+
+    toastContainer.appendChild(toast);
+}
+
+// Spinner Management
+function showSpinner() {
+    if (!document.getElementById('spinner')) { // Prevent multiple spinners
+        const spinner = document.createElement('div');
+        spinner.id = 'spinner';
+        spinner.innerHTML = `<div class="loader"></div>`;
+        document.body.appendChild(spinner);
+    }
+}
+
+function hideSpinner() {
+    const spinner = document.getElementById('spinner');
+    if (spinner) spinner.remove();
+}
+
+// Dispose of the current model
 function disposeModel(model) {
+    if (!model) return;
     model.traverse((child) => {
         if (child.isMesh) {
             if (child.geometry) child.geometry.dispose();
@@ -64,161 +116,101 @@ function disposeModel(model) {
 function disposeMaterial(material) {
     for (const key in material) {
         const value = material[key];
-        if (value && typeof value === 'object' && 'minFilter' in value) {
+        if (value && typeof value.dispose === 'function') {
             value.dispose();
         }
     }
-    material.dispose();
-}
-
-// Show toast (auto-dismiss)
-function showToast(message, type = 'info', duration = 1000) {
-    const toastContainer = document.getElementById('toast-container') || createToastContainer();
-
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-
-    toastContainer.appendChild(toast);
-
-    setTimeout(() => {
-        toast.style.animation = 'fade-out 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-    }, duration);
-}
-
-// Show persistent toast with close button (only for errors)
-function showPersistentToast(message, type = 'error') {
-    const toastContainer = document.getElementById('toast-container') || createToastContainer();
-
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    
-    // Create a span to hold the message
-    const messageSpan = document.createElement('span');
-    messageSpan.textContent = message;
-    toast.appendChild(messageSpan);
-
-    // Add close button for persistent toasts
-    const closeButton = document.createElement('button');
-    closeButton.textContent = '×';
-    closeButton.onclick = () => toast.remove();
-    toast.appendChild(closeButton);
-
-    toastContainer.appendChild(toast);
-}
-
-// Create toast container
-function createToastContainer() {
-    const toastContainer = document.createElement('div');
-    toastContainer.id = 'toast-container';
-    document.body.appendChild(toastContainer);
-    return toastContainer;
 }
 
 // Load model with retry logic
 async function loadModel(url, retries = MAX_RETRIES) {
-    let retryCount = 0;
-    while (retryCount < retries) {
-        try {
-            console.log(`Attempting to load model: ${url} (Attempt ${retryCount + 1}/${retries})`);
-            const gltf = await gltfLoader.loadAsync(url);
-            console.log(`Successfully loaded model: ${url}`);
-            return gltf.scene;
-        } catch (error) {
-            retryCount++;
-            console.warn(`Failed to load model at ${url}, retry ${retryCount}/${retries}`);
+    return new Promise((resolve, reject) => {
+        function attemptLoad(attempt) {
+            gltfLoader.load(
+                url,
+                (gltf) => resolve(gltf.scene),
+                undefined,
+                (error) => {
+                    if (attempt < retries - 1) {
+                        console.warn(`Retrying to load model: ${url} (Attempt ${attempt + 1}/${retries})`);
+                        attemptLoad(attempt + 1);
+                    } else {
+                        reject(error);
+                    }
+                }
+            );
         }
-    }
-    throw new Error(`Failed to load model after ${retries} retries: ${url}`);
+        attemptLoad(0);
+    });
 }
 
-// Load and display model
-async function loadAndDisplayModel() {
-    if (!modelPath) {
-        showPersistentToast('No model URL provided. Please specify a model using the "model" URL parameter.', 'error');
-        return;
+// Load and display model with fallback
+async function loadAndDisplayModel(url, isFallback = false) {
+    console.log(`Attempting to load model from: ${url}, isFallback: ${isFallback}`);
+
+    if (currentModel) {
+        disposeModel(currentModel);
+        currentModel = null;
+    }
+
+    // Show spinner and loading message only for the main model
+    if (!isFallback) {
+        showSpinner();
+        showToast('Loading model, please wait...', 'info');
     }
 
     try {
-        if (currentModel) {
-            disposeModel(currentModel);
-            currentModel = null;
-        }
+        const model = await loadModel(url); // Attempt to load the model
+        model.traverse((child) => {
+            if (child.isMesh) {
+                if (!(child.material instanceof THREE.MeshStandardMaterial)) {
+                    child.material = new THREE.MeshStandardMaterial({
+                        map: child.material.map || null,
+                        metalness: 0.3,
+                        roughness: 0.7,
+                    });
+                }
+                child.castShadow = false;
+                child.receiveShadow = false;
+            }
+        });
+        model.position.set(0, 0, 0);
+        scene.add(model);
+        currentModel = model;
 
-        showSpinner();
-        showToast('Loading model, please wait...', 'info', 1000);
-
-        // Attempt to load the model from the URL
-        try {
-            const decodedModelPath = decodeURIComponent(modelPath);
-            const model = await loadModel(decodedModelPath); // Try to load the primary model
-            scene.add(model);
-            currentModel = model;
-
-            renderer.compile(scene, camera);
-
-            hideSpinner();
-            showToast('Model loaded successfully.', 'success', 1000);
-        } catch (error) {
-            console.error(`Error loading model from URL (${modelPath}):`, error);
-            hideSpinner();
-            showPersistentToast(
-                `Unable to load the requested model. Please check the URL and try again.`,
-                'error'
-            );
-        }
-    } catch (criticalError) {
-        console.error('Critical error loading model:', criticalError);
         hideSpinner();
-        showPersistentToast('Critical error loading model.', 'error');
+
+        // Show success toast only for the main model (not fallback)
+        if (!isFallback) {
+            showToast('Model loaded successfully.', 'success');
+        }
+    } catch (error) {
+        console.error(`Failed to load model from ${url}`, error);
+
+        hideSpinner();
+
+        // Handle fallback model loading
+        if (!isFallback) {
+            // Show error toast for the main model failure
+            showToast('Unable to load the requested model.', 'error', true);
+            // Attempt to load the fallback model
+            await loadAndDisplayModel(FALLBACK_MODEL, true);
+        } else {
+            // Final error toast for fallback failure
+            showToast('Fallback model also failed to load.', 'error', true);
+        }
     }
 }
 
-// Spinner management
-function showSpinner() {
-    const spinner = document.createElement('div');
-    spinner.id = 'spinner';
-    spinner.innerHTML = `<div class="loader"></div>`;
-    document.body.appendChild(spinner);
-}
-
-function hideSpinner() {
-    const spinner = document.getElementById('spinner');
-    if (spinner) spinner.remove();
-}
-
-// Debounced resize handler
-function debounce(func, wait, immediate) {
-    let timeout;
-    return function () {
-        const context = this,
-            args = arguments;
-        const later = function () {
-            timeout = null;
-            if (!immediate) func.apply(context, args);
-        };
-        const callNow = immediate && !timeout;
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-        if (callNow) func.apply(context, args);
-    };
-}
-
-// Handle resize
-window.addEventListener(
-    'resize',
-    debounce(() => {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-
-        camera.aspect = width / height;
-        camera.updateProjectionMatrix();
-
-        renderer.setSize(width, height);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-    }, 200)
-);
+// Handle window resizing
+window.addEventListener('resize', () => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+});
 
 // Start animation loop
 function startAnimationLoop() {
@@ -230,5 +222,19 @@ function startAnimationLoop() {
     animate();
 }
 
-// Initialize
-loadAndDisplayModel().then(startAnimationLoop);
+// Initialize the scene
+(async function init() {
+    const modelParam = getUrlParameter('model');
+
+    if (!modelParam) {
+        // No model URL provided; load fallback
+        showToast('No model URL provided. Loading fallback model.', 'error', true);
+        await loadAndDisplayModel(FALLBACK_MODEL, true);
+    } else {
+        // Model URL provided; attempt to load it
+        await loadAndDisplayModel(modelParam, false);
+    }
+
+    // Start the animation loop after attempting to load the model
+    startAnimationLoop();
+})();
