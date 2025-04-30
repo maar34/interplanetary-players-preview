@@ -45,7 +45,7 @@ scene.add(ambientLight);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = false;
 controls.enablePan = false;
-controls.minDistance = 0.5;
+controls.minDistance = 1.0;
 controls.maxDistance = 3;
 
 // GLTF Loader
