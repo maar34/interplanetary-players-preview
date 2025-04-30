@@ -22,7 +22,7 @@ const camera = new THREE.PerspectiveCamera(
     0.1,
     1000
 );
-camera.position.set(0, 0, 2.5);
+camera.position.set(0, 0, 5.5);
 
 // Renderer Setup
 const canvas = document.querySelector('.webgl');
@@ -45,8 +45,8 @@ scene.add(ambientLight);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = false;
 controls.enablePan = false;
-controls.minDistance = 1.5;
-controls.maxDistance = 5;
+controls.minDistance = 2.5;
+controls.maxDistance = 6;
 
 // GLTF Loader
 const gltfLoader = new GLTFLoader();
@@ -67,7 +67,7 @@ function initializeToastContainer() {
 }
 
 // Show Toast Message
-function showToast(message, type = 'info', persistent = false) {
+function //showToast(message, type = 'info', persistent = false) {
     initializeToastContainer();
 
     const toast = document.createElement('div');
@@ -156,7 +156,7 @@ async function loadAndDisplayModel(url, isFallback = false) {
     // Show spinner and loading message only for the main model
     if (!isFallback) {
         showSpinner();
-        showToast('Loading model, please wait...', 'info');
+        //showToast('Loading model, please wait...', 'info');
     }
 
     try {
@@ -182,7 +182,7 @@ async function loadAndDisplayModel(url, isFallback = false) {
 
         // Show success toast only for the main model (not fallback)
         if (!isFallback) {
-            showToast('Model loaded successfully.', 'success');
+            //showToast('Model loaded successfully.', 'success');
         }
     } catch (error) {
         console.error(`Failed to load model from ${url}`, error);
@@ -192,12 +192,12 @@ async function loadAndDisplayModel(url, isFallback = false) {
         // Handle fallback model loading
         if (!isFallback) {
             // Show error toast for the main model failure
-            showToast('Unable to load the requested model.', 'error', true);
+            //showToast('Unable to load the requested model.', 'error', true);
             // Attempt to load the fallback model
             await loadAndDisplayModel(FALLBACK_MODEL, true);
         } else {
             // Final error toast for fallback failure
-            showToast('Fallback model also failed to load.', 'error', true);
+            //showToast('Fallback model also failed to load.', 'error', true);
         }
     }
 }
@@ -228,7 +228,7 @@ function startAnimationLoop() {
 
     if (!modelParam) {
         // No model URL provided; load fallback
-        showToast('No model URL provided. Loading fallback model.', 'error', true);
+        //showToast('No model URL provided. Loading fallback model.', 'error', true);
         await loadAndDisplayModel(FALLBACK_MODEL, true);
     } else {
         // Model URL provided; attempt to load it
