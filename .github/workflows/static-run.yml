@@ -45,6 +45,12 @@ jobs:
         with:
           path: './dist'
 
+      - name: Workaround GitHub Actions registry glitch
+        uses: actions/upload-artifact@v3
+        with:
+          name: dummy-artifact
+          path: .github/workflows/static-run.yml
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v1
