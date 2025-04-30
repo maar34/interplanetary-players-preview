@@ -1,6 +1,6 @@
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as THREE from '/three';
+import { OrbitControls } from '/three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from '/three/examples/jsm/loaders/GLTFLoader.js';
 
 const MAX_RETRIES = 3; // Maximum number of retry attempts
 const FALLBACK_MODEL = '/assets/models/not-found-low.glb'; // Ensure this path is correct
