@@ -54,44 +54,17 @@ const gltfLoader = new GLTFLoader();
 // Variable to track the current model
 let currentModel = null;
 
-// Toast Management
-let toastContainer = null;
-
-// Initialize Toast Container
-function initializeToastContainer() {
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toast-container';
-        document.body.appendChild(toastContainer);
-    }
-}
-
-// Show Toast Message
-function //showToast(message, type = 'info', persistent = false) {
-    initializeToastContainer();
-
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-
-    if (persistent) {
-        const closeButton = document.createElement('button');
-        closeButton.textContent = '×';
-        closeButton.onclick = () => toast.remove();
-        toast.appendChild(closeButton);
-    } else {
-        setTimeout(() => toast.remove(), 3000);
-    }
-
-    toastContainer.appendChild(toast);
-}
-
 // Spinner Management
 function showSpinner() {
     if (!document.getElementById('spinner')) { // Prevent multiple spinners
         const spinner = document.createElement('div');
         spinner.id = 'spinner';
-        spinner.innerHTML = `<div class="loader"></div>`;
+        spinner.innerHTML = `
+    <div class="orbit-container">
+      <div class="orbit-dot"></div>
+    </div>
+    <div class="loading-text">Loading...</div>
+  `;
         document.body.appendChild(spinner);
     }
 }
