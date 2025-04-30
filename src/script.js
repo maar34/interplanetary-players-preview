@@ -45,7 +45,7 @@ scene.add(ambientLight);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = false;
 controls.enablePan = false;
-controls.minDistance = 1.5;
+controls.minDistance = 0.5;
 controls.maxDistance = 3;
 
 // GLTF Loader
@@ -119,7 +119,7 @@ async function loadModel(url, retries = MAX_RETRIES) {
 
 // Load and display model with fallback
 async function loadAndDisplayModel(url, isFallback = false) {
-    console.log(`Attempting to load model from: ${url}, isFallback: ${isFallback}`);
+   // console.log(`Attempting to load model from: ${url}, isFallback: ${isFallback}`);
 
     if (currentModel) {
         disposeModel(currentModel);
