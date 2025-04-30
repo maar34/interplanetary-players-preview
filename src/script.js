@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from "../node_modules/three/build/three.module.js"
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
@@ -22,7 +22,7 @@ const camera = new THREE.PerspectiveCamera(
     0.1,
     1000
 );
-camera.position.set(0, 0, 2.5);
+camera.position.set(0, 0, 1.5);
 
 // Renderer Setup
 const canvas = document.querySelector('.webgl');
@@ -46,7 +46,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = false;
 controls.enablePan = false;
 controls.minDistance = 1.5;
-controls.maxDistance = 5;
+controls.maxDistance = 3;
 
 // GLTF Loader
 const gltfLoader = new GLTFLoader();
@@ -54,44 +54,17 @@ const gltfLoader = new GLTFLoader();
 // Variable to track the current model
 let currentModel = null;
 
-// Toast Management
-let toastContainer = null;
-
-// Initialize Toast Container
-function initializeToastContainer() {
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toast-container';
-        document.body.appendChild(toastContainer);
-    }
-}
-
-// Show Toast Message
-function showToast(message, type = 'info', persistent = false) {
-    initializeToastContainer();
-
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-
-    if (persistent) {
-        const closeButton = document.createElement('button');
-        closeButton.textContent = '×';
-        closeButton.onclick = () => toast.remove();
-        toast.appendChild(closeButton);
-    } else {
-        setTimeout(() => toast.remove(), 3000);
-    }
-
-    toastContainer.appendChild(toast);
-}
-
 // Spinner Management
 function showSpinner() {
     if (!document.getElementById('spinner')) { // Prevent multiple spinners
         const spinner = document.createElement('div');
         spinner.id = 'spinner';
-        spinner.innerHTML = `<div class="loader"></div>`;
+        spinner.innerHTML = `
+    <div class="orbit-container">
+      <div class="orbit-dot"></div>
+    </div>
+    <div class="loading-text">Loading...</div>
+  `;
         document.body.appendChild(spinner);
     }
 }
@@ -156,7 +129,7 @@ async function loadAndDisplayModel(url, isFallback = false) {
     // Show spinner and loading message only for the main model
     if (!isFallback) {
         showSpinner();
-        showToast('Loading model, please wait...', 'info');
+        //showToast('Loading model, please wait...', 'info');
     }
 
     try {
@@ -182,7 +155,7 @@ async function loadAndDisplayModel(url, isFallback = false) {
 
         // Show success toast only for the main model (not fallback)
         if (!isFallback) {
-            showToast('Model loaded successfully.', 'success');
+            //showToast('Model loaded successfully.', 'success');
         }
     } catch (error) {
         console.error(`Failed to load model from ${url}`, error);
@@ -192,12 +165,12 @@ async function loadAndDisplayModel(url, isFallback = false) {
         // Handle fallback model loading
         if (!isFallback) {
             // Show error toast for the main model failure
-            showToast('Unable to load the requested model.', 'error', true);
+            //showToast('Unable to load the requested model.', 'error', true);
             // Attempt to load the fallback model
             await loadAndDisplayModel(FALLBACK_MODEL, true);
         } else {
             // Final error toast for fallback failure
-            showToast('Fallback model also failed to load.', 'error', true);
+            //showToast('Fallback model also failed to load.', 'error', true);
         }
     }
 }
@@ -228,7 +201,7 @@ function startAnimationLoop() {
 
     if (!modelParam) {
         // No model URL provided; load fallback
-        showToast('No model URL provided. Loading fallback model.', 'error', true);
+        //showToast('No model URL provided. Loading fallback model.', 'error', true);
         await loadAndDisplayModel(FALLBACK_MODEL, true);
     } else {
         // Model URL provided; attempt to load it
