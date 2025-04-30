@@ -40,11 +40,10 @@ jobs:
       - name: Debug build output
         run: ls -la ./dist
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v1
         with:
           path: './dist'
-
 
       - name: Deploy to GitHub Pages
         id: deployment
