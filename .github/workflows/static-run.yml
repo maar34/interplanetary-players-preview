@@ -25,18 +25,6 @@ jobs:
       - name: Debug dist
         run: ls -la dist
 
-      # Work‑around GH registry glitch: explicitly pull upload‑artifact@v3
-      - name: Prefetch upload‑artifact action
-        uses: actions/upload-artifact@v3
-        with:
-          name: dummy-artifact
-          path: README.md
-
-      - name: Upload Pages artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: pages
-          path: dist
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
