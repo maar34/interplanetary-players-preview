@@ -22,7 +22,7 @@ const camera = new THREE.PerspectiveCamera(
     0.1,
     1000
 );
-camera.position.set(0, 0, 5.5);
+camera.position.set(0, 0, 1.5);
 
 // Renderer Setup
 const canvas = document.querySelector('.webgl');
@@ -45,8 +45,8 @@ scene.add(ambientLight);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = false;
 controls.enablePan = false;
-controls.minDistance = 2.5;
-controls.maxDistance = 6;
+controls.minDistance = 1.5;
+controls.maxDistance = 3;
 
 // GLTF Loader
 const gltfLoader = new GLTFLoader();
