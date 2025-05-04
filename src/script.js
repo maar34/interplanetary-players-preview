@@ -11,6 +11,17 @@ function getUrlParameter(name) {
     return urlParams.get(name);
 }
 
+// Camera parameters from URL or defaults
+const CAMERA_POS_Z = parseFloat(getUrlParameter('camZ')) || 1.5;
+const MIN_DISTANCE = parseFloat(getUrlParameter('minDist')) || 1.0;
+const MAX_DISTANCE = parseFloat(getUrlParameter('maxDist')) || 3.0;
+
+// Global flag – if the URL contains alphaMode=1|true|opaque we will force all mesh materials opaque
+const FORCE_OPAQUE = ['1', 'true', 'opaque'].includes((getUrlParameter('alphaMode') || '').toLowerCase());
+
+// Global flag – if the URL contains wireframe=1|true|on, we render models in wireframe mode
+const FORCE_WIREFRAME = ['1', 'true', 'on'].includes((getUrlParameter('wireframe') || '').toLowerCase());
+
 // Scene Setup
 const scene = new THREE.Scene();
 scene.background = null; // Transparent background
@@ -22,7 +33,7 @@ const camera = new THREE.PerspectiveCamera(
     0.1,
     1000
 );
-camera.position.set(0, 0, 1.5);
+camera.position.set(0, 0, CAMERA_POS_Z);
 
 // Renderer Setup
 const canvas = document.querySelector('.webgl');
@@ -38,15 +49,26 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 1.0);
 scene.add(hemisphereLight);
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
 scene.add(ambientLight);
+
 
 // Controls Setup
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = false;
+
+
+// scene settings
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+
+scene.background = new THREE.Color('#000000');
+
+controls.enableDamping = true;
+controls.dampingFactor = 0.125;
+
 controls.enablePan = false;
-controls.minDistance = 1.0;
-controls.maxDistance = 3;
+controls.minDistance = MIN_DISTANCE;
+controls.maxDistance = MAX_DISTANCE;
 
 // GLTF Loader
 const gltfLoader = new GLTFLoader();
@@ -142,6 +164,22 @@ async function loadAndDisplayModel(url, isFallback = false) {
                         metalness: 0.3,
                         roughness: 0.7,
                     });
+                }
+                // Force materials to opaque when the flag is enabled
+                if (FORCE_OPAQUE) {
+                    const m = child.material;
+                    if (m.transparent || (m.transmission && m.transmission > 0)) {
+                        m.transparent = false;
+                        m.opacity = 1;
+                        if ('transmission' in m) m.transmission = 0;
+                        m.alphaTest = 0;
+                        m.needsUpdate = true;
+                    }
+                }
+                // Enable wireframe if requested
+                if (FORCE_WIREFRAME) {
+                    child.material.wireframe = true;
+                    child.material.needsUpdate = true;
                 }
                 child.castShadow = false;
                 child.receiveShadow = false;
